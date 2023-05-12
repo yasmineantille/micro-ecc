@@ -20,19 +20,19 @@
 #endif
 
 #if (uECC_PLATFORM == uECC_arm_thumb)
-    #define REG_RW "+l"
-    #define REG_WRITE "=l"
+    #define REG_RW "+&l"
+    #define REG_WRITE "=&l"
 #else
-    #define REG_RW "+r"
-    #define REG_WRITE "=r"
+    #define REG_RW "+&r"
+    #define REG_WRITE "=&r"
 #endif
 
 #if (uECC_PLATFORM == uECC_arm_thumb || uECC_PLATFORM == uECC_arm_thumb2)
-    #define REG_RW_LO "+l"
-    #define REG_WRITE_LO "=l"
+    #define REG_RW_LO "+&l"
+    #define REG_WRITE_LO "=&l"
 #else
-    #define REG_RW_LO "+r"
-    #define REG_WRITE_LO "=r"
+    #define REG_RW_LO "+&r"
+    #define REG_WRITE_LO "=&r"
 #endif
 
 #if (uECC_PLATFORM == uECC_arm_thumb2)
@@ -620,7 +620,7 @@ uECC_VLI_API void uECC_vli_mult(uECC_word_t *result,
         "str %[r3], [%[r0], %[r6]] \n\t" /* result[num_words * 2 - 1] = c0 */
         "pop {%[r0]} \n\t"               /* pop result off the stack */
         
-        ".syntax divided \n\t"
+        RESUME_SYNTAX
         : [r3] "+l" (num_words), [r4] "=&l" (r4),
           [r5] "=&l" (r5), [r6] "=&l" (r6), [r7] "=&l" (r7)
         : [r0] "l" (result), [r1] "l" (left), [r2] "l" (right)
@@ -805,7 +805,7 @@ uECC_VLI_API void uECC_vli_square(uECC_word_t *result,
         "str %[r2], [%[r0], %[r5]] \n\t" /* result[num_words * 2 - 1] = c0 */
         "pop {%[r0]} \n\t"               /* pop result off the stack */
 
-        ".syntax divided \n\t"
+        RESUME_SYNTAX
         : [r2] "+l" (num_words), [r3] "=&l" (r3), [r4] "=&l" (r4),
           [r5] "=&l" (r5), [r6] "=&l" (r6), [r7] "=&l" (r7)
         : [r0] "l" (result), [r1] "l" (left)
