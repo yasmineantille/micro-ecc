@@ -358,8 +358,57 @@ int uECC_verify(const uint8_t *public_key,
                 const uint8_t *signature,
                 uECC_Curve curve);
 
+
+
+
 #ifdef __cplusplus
 } /* end of extern "C" */
 #endif
 
 #endif /* _UECC_H_ */
+
+/* Additions by Yasmine Antille */
+
+/* uECC_scalar_multiplication() function
+Perform scalar multiplication with a valid point on the curve.
+
+Usage: Compute a new point on the curve using a valid point and a scalar.
+
+Inputs:
+    result  - The address where resulting point should be written to
+    point   - The point on curve for multiplication
+    scalar  - A scalar for multiplication
+
+Returns 1 if the multiplied point is valid, 0 if it is invalid.
+ */
+int uECC_scalar_multiplication(uint8_t * result, uint8_t * point, uint8_t * scalar, uECC_Curve curve);
+
+/* uECC_addition() function
+Perform point addition for two valid points on the curve.
+
+This function is only optimized for uECC_VLI_NATIVE_LITTLE_ENDIAN.
+
+Usage: Compute the sum of two points on the curve. R = P + Q
+
+Inputs:
+    result  - The address where resulting point should be written to
+    P       - The point P
+    Q       - The point Q
+
+Returns 1 if the sum point is valid, 0 if it is invalid.
+ */
+int uECC_addition(uint8_t * result, uint8_t * P, uint8_t * Q, uECC_Curve curve);
+
+
+/* uECC_calculate_mod_inv() function
+Calculate the modular inverse of r.
+
+This function is only optimized for uECC_VLI_NATIVE_LITTLE_ENDIAN.
+
+Inputs:
+    result  - The address where resulting point should be written to
+    r       - random number r which we want mod inv of
+
+Returns 1 if the result is valid, 0 if it is invalid.
+ */
+int uECC_calculate_mod_inv(uint8_t * result, uint8_t * r, uECC_Curve curve);
