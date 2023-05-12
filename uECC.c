@@ -1667,3 +1667,142 @@ void uECC_point_mult(uECC_word_t *result,
 }
 
 #endif /* uECC_ENABLE_VLI_API */
+
+
+/* Additions by Yasmine Antille */
+
+int uECC_scalar_multiplication(uint8_t * result,
+                               uint8_t * point,
+                               uint8_t * scalar,
+                               uECC_Curve curve)
+{
+    const wordcount_t num_bytes = curve->num_bytes;
+    const wordcount_t num_n_bits = curve->num_n_bits;
+    const wordcount_t num_words = curve->num_words;
+
+    // Allocate proper memory for the point and scalar in native type
+    // And allocate memory for the output result in native type
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    uECC_word_t *_scalar = (uECC_word_t *)scalar;
+    uECC_word_t *_point = (uECC_word_t *)point;
+    uECC_word_t *_result = (uECC_word_T *)result;
+#else
+    uECC_word_t _scalar[uECC_MAX_WORDS];
+    uECC_word_t _point[uECC_MAX_WORDS * 2];
+    uECC_word_t _result[uECC_MAX_WORDS * 2];
+#endif
+
+    // Convert point and scalar from uint8_t format to uECC_word_t format
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN == 0
+    uECC_vli_bytesToNative(_scalar, scalar, BITS_TO_BYTES(num_n_bits));
+    uECC_vli_bytesToNative(_point, point, num_bytes);
+    uECC_vli_bytesToNative(_point + num_words, point + num_bytes, num_bytes);
+#endif
+
+    // Make sure receiving point is valid
+    if (!uECC_valid_point(_point, curve)) {
+        return 0;
+    }
+
+    // Make sure the scalar is in the range [1, n-1].
+    if (uECC_vli_isZero(_scalar, num_words)) {
+        return 0;
+    }
+
+    // Perform scalar multiplication using uECC function EccPoint_mult()
+    uECC_word_t initial_Z = 1;
+    EccPoint_mult(_result, _point, _scalar, &initial_Z, curve->num_n_bits, curve);
+
+    // Check if the resulting point is on the curve
+    if (!uECC_valid_point(_result, curve)) {
+        return 0;
+    }
+
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN == 0
+    // Convert resulting point from uECC_word_t format to uint8_t format
+    uECC_vli_nativeToBytes(result, num_bytes, _result);
+    uECC_vli_nativeToBytes(result + num_bytes, num_bytes, _result + num_words);
+#endif
+    return 1;
+}
+
+int uECC_addition(uint8_t * result, uint8_t * P, uint8_t * Q, uECC_Curve curve)
+{
+    const wordcount_t num_bytes = curve->num_bytes;
+    const wordcount_t num_words = curve->num_words;
+
+    // Allocate proper memory for the two points and output result in native type
+    uECC_word_t _p[uECC_MAX_WORDS * 2];
+    uECC_word_t _q[uECC_MAX_WORDS * 2];
+    uECC_word_t _result[uECC_MAX_WORDS * 2];
+    uECC_word_t X1[uECC_MAX_WORDS], Y1[uECC_MAX_WORDS], X2[uECC_MAX_WORDS], Y2[uECC_MAX_WORDS];
+    uECC_word_t z[uECC_MAX_WORDS];
+
+    // Convert points from uint8_t format to native format to check if valid points
+    uECC_vli_bytesToNative(_p, P, num_bytes);
+    uECC_vli_bytesToNative(_p + num_words, P + num_bytes, num_bytes);
+    uECC_vli_bytesToNative(_q, Q, num_bytes);
+    uECC_vli_bytesToNative(_q + num_words, Q + num_bytes, num_bytes);
+
+    // Make sure receiving points are valid
+    if (!uECC_valid_point(_p, curve) || !uECC_valid_point(_q, curve)) {
+        return 5;
+    }
+
+    // convert points to projective coordinates
+    uECC_vli_bytesToNative(X1, P, num_bytes);
+    uECC_vli_bytesToNative(Y1, P + num_bytes, num_bytes);
+    uECC_vli_bytesToNative(X2, Q, num_bytes);
+    uECC_vli_bytesToNative(Y2, Q + num_bytes, num_bytes);
+
+    // uECC uses projective Jacobian coordinates internally for point representation,
+    // but the Z coordinate is implicit during the Montgomery ladder since P and Q share same Z coordinate
+    // See http://eprint.iacr.org/2011/338.pdf
+
+    // To find the final Z value I follow the example in uECC_verify for G + Q
+    uECC_vli_modSub(z, X2, X1, curve->p, num_words);
+    XYcZ_add(X1, Y1, X2, Y2, curve);
+    uECC_vli_modInv(z, z, curve->p, num_words);
+    // Apply Z coordinate to the result
+    apply_z(X2, Y2, z, curve);
+
+    uECC_vli_set(_result, X2, num_words);
+    uECC_vli_set(_result + num_words, Y2, num_words);
+
+    // Check if the resulting point is on the curve
+    if (!uECC_valid_point(_result, curve)) {
+        return 0;
+    }
+
+    // Convert resulting point to uint8_t format
+    uECC_vli_nativeToBytes(result, num_bytes, _q);
+    uECC_vli_nativeToBytes(result + num_bytes, num_bytes, _q + num_words);
+
+    return 1;
+}
+
+int uECC_calculate_mod_inv(uint8_t * result, uint8_t * r, uECC_Curve curve)
+{
+    const wordcount_t num_words = curve->num_words;
+    const wordcount_t num_n_bits = curve->num_n_bits;
+
+    // Allocate memory for the random number and inverse in native type
+    uECC_word_t _result[uECC_MAX_WORDS];
+    uECC_word_t _r[uECC_MAX_WORDS];
+
+    // Convert random number from uint8_t format to native format
+    uECC_vli_bytesToNative(_r, r, BITS_TO_BYTES(num_n_bits));
+
+    // Calculate the modular inverse using uECC_vli_modInv function
+    uECC_vli_modInv(_result, _r, curve->p, num_words);
+
+    // Make sure the result is in the range [1, n-1].
+    if (uECC_vli_isZero(_result, num_words)) {
+        return 0;
+    }
+
+    // Convert inverse from native format to uint8_t format
+    uECC_vli_nativeToBytes(result, curve->num_bytes, _result);
+
+    return 1;
+}
