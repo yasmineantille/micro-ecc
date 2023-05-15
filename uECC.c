@@ -1806,3 +1806,12 @@ int uECC_calculate_mod_inv(uint8_t * result, uint8_t * r, uECC_Curve curve)
 
     return 1;
 }
+
+int uECC_scalar_mult_with_base_point(uint8_t * result, uint8_t * scalar, uECC_Curve curve)
+{
+    // Use base point G for multiplication
+    if(uECC_scalar_multiplication(result, curve->G, scalar, curve) != 1) {
+        return 0;
+    }
+    return 1;
+}

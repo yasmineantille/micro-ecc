@@ -414,3 +414,16 @@ Inputs:
 Returns 1 if the result is valid, 0 if it is invalid.
  */
 int uECC_calculate_mod_inv(uint8_t * result, uint8_t * r, uECC_Curve curve);
+
+
+/* uECC_scalar_mult_with_base_point() function
+Perform scalar multiplication with a base point on the curve and a chosen scalar.
+
+
+Inputs:
+    result  - The address where resulting point should be written to
+    scalar  - A scalar for multiplication
+
+Returns 1 if the multiplied point is valid, 0 if it is invalid.
+ */
+int uECC_scalar_mult_with_base_point(uint8_t * result, uint8_t * scalar, uECC_Curve curve);
