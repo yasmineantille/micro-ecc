@@ -1815,3 +1815,68 @@ int uECC_scalar_mult_with_base_point(uint8_t * result, uint8_t * scalar, uECC_Cu
     }
     return 1;
 }
+
+
+int uECC_multiply_mod_p(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve curve)
+{
+    const wordcount_t num_words = curve->num_words;
+    const wordcount_t num_n_bits = curve->num_n_bits;
+
+    // Allocate memory for the random number and inverse in native type
+    uECC_word_t _result[uECC_MAX_WORDS];
+    uECC_word_t _a[uECC_MAX_WORDS];
+    uECC_word_t _b[uECC_MAX_WORDS];
+
+    // Convert input from uint8_t format to native format
+    uECC_vli_bytesToNative(_b, b, BITS_TO_BYTES(num_n_bits));
+    uECC_vli_bytesToNative(_a, a, BITS_TO_BYTES(num_n_bits));
+
+    uECC_vli_modMult_fast(_result, _b, _a, curve);
+
+    // Make sure the result is in the range [1, n-1].
+    if (uECC_vli_isZero(_result, num_words)) {
+        return 0;
+    }
+
+    // Convert result from native format to uint8_t format
+    uECC_vli_nativeToBytes(result, curve->num_bytes, _result);
+    return 1;
+}
+
+int uECC_inner_product(uint8_t * result, uint8_t * a, uint8_t * b, const uint8_t num_elements, uECC_Curve curve)
+{
+    const wordcount_t num_words = curve->num_words;
+    const wordcount_t num_bytes = curve->num_bytes;
+    const wordcount_t num_n_bits = curve->num_n_bits;
+
+    // Allocate memory in native type
+    uECC_word_t _result[uECC_MAX_WORDS];
+    uECC_word_t _temp_result[uECC_MAX_WORDS];
+    uECC_word_t _a[uECC_MAX_WORDS];
+    uECC_word_t _b[uECC_MAX_WORDS];
+
+    // Initialize the result to zero
+    uECC_vli_clear(_result, num_words);
+
+    wordcount_t i;
+    for (i = 0; i < num_elements; i++) {
+        // Convert input from uint8_t format to native format
+        uECC_vli_bytesToNative(_b, &b[i*uECC_MAX_WORDS], num_bytes);
+        uECC_vli_bytesToNative(_a, &a[i*uECC_MAX_WORDS], num_bytes);
+
+        // Perform modular multiplication
+        uECC_vli_modMult_fast(_temp_result, _b, _a, curve);
+
+        // Accumulate the result
+        uECC_vli_modAdd(_result, _result, _temp_result, curve->p, num_words);
+    }
+
+    // Make sure the result is in the range [1, n-1].
+    if (uECC_vli_isZero(_result, num_words)) {
+        return 0;
+    }
+
+    // Convert result from native format to uint8_t format
+    uECC_vli_nativeToBytes(result, curve->num_bytes, _result);
+    return 1;
+}
