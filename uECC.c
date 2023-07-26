@@ -1670,62 +1670,6 @@ void uECC_point_mult(uECC_word_t *result,
 
 
 /* Additions by Yasmine Antille */
-
-int uECC_scalar_multiplication(uint8_t * result,
-                               uint8_t * point,
-                               uint8_t * scalar,
-                               uECC_Curve curve)
-{
-    const wordcount_t num_bytes = curve->num_bytes;
-    const wordcount_t num_n_bits = curve->num_n_bits;
-    const wordcount_t num_words = curve->num_words;
-
-    // Allocate proper memory for the point and scalar in native type
-    // And allocate memory for the output result in native type
-#if uECC_VLI_NATIVE_LITTLE_ENDIAN
-    uECC_word_t *_scalar = (uECC_word_t *)scalar;
-    uECC_word_t *_point = (uECC_word_t *)point;
-    uECC_word_t *_result = (uECC_word_T *)result;
-#else
-    uECC_word_t _scalar[uECC_MAX_WORDS];
-    uECC_word_t _point[uECC_MAX_WORDS * 2];
-    uECC_word_t _result[uECC_MAX_WORDS * 2];
-#endif
-
-    // Convert point and scalar from uint8_t format to uECC_word_t format
-#if uECC_VLI_NATIVE_LITTLE_ENDIAN == 0
-    uECC_vli_bytesToNative(_scalar, scalar, BITS_TO_BYTES(num_n_bits));
-    uECC_vli_bytesToNative(_point, point, num_bytes);
-    uECC_vli_bytesToNative(_point + num_words, point + num_bytes, num_bytes);
-#endif
-
-    // Make sure receiving point is valid
-    if (!uECC_valid_point(_point, curve)) {
-        return 0;
-    }
-
-    // Make sure the scalar is in the range [1, n-1].
-    if (uECC_vli_isZero(_scalar, num_words)) {
-        return 0;
-    }
-
-    // Perform scalar multiplication using uECC function EccPoint_mult()
-    uECC_word_t initial_Z = 1;
-    EccPoint_mult(_result, _point, _scalar, &initial_Z, curve->num_n_bits, curve);
-
-    // Check if the resulting point is on the curve
-    if (!uECC_valid_point(_result, curve)) {
-        return 0;
-    }
-
-#if uECC_VLI_NATIVE_LITTLE_ENDIAN == 0
-    // Convert resulting point from uECC_word_t format to uint8_t format
-    uECC_vli_nativeToBytes(result, num_bytes, _result);
-    uECC_vli_nativeToBytes(result + num_bytes, num_bytes, _result + num_words);
-#endif
-    return 1;
-}
-
 int uECC_addition(uint8_t * result, uint8_t * P, uint8_t * Q, uECC_Curve curve)
 {
     const wordcount_t num_bytes = curve->num_bytes;
@@ -1849,9 +1793,12 @@ int uECC_inner_product(uint8_t * result, uint8_t * a, uint8_t * b, const uint8_t
     const wordcount_t num_bytes = curve->num_bytes;
     const wordcount_t num_n_bits = curve->num_n_bits;
 
+    // temporary result
+    uECC_word_t _temp_result[uECC_MAX_WORDS];
+
     // Allocate memory in native type
     uECC_word_t _result[uECC_MAX_WORDS];
-    uECC_word_t _temp_result[uECC_MAX_WORDS];
+    //uECC_word_t _temp_result[uECC_MAX_WORDS];
     uECC_word_t _a[uECC_MAX_WORDS];
     uECC_word_t _b[uECC_MAX_WORDS];
 
@@ -1861,22 +1808,69 @@ int uECC_inner_product(uint8_t * result, uint8_t * a, uint8_t * b, const uint8_t
     wordcount_t i;
     for (i = 0; i < num_elements; i++) {
         // Convert input from uint8_t format to native format
-        uECC_vli_bytesToNative(_b, &b[i*uECC_MAX_WORDS], num_bytes);
-        uECC_vli_bytesToNative(_a, &a[i*uECC_MAX_WORDS], num_bytes);
+        uECC_vli_bytesToNative(_b, &b[i*num_bytes], num_bytes);
+        uECC_vli_bytesToNative(_a, &a[i*num_bytes], num_bytes);
 
         // Perform modular multiplication
         uECC_vli_modMult_fast(_temp_result, _b, _a, curve);
 
         // Accumulate the result
-        uECC_vli_modAdd(_result, _result, _temp_result, curve->p, num_words);
+        uECC_vli_modAdd(result, result, _temp_result, curve->p, num_words);
     }
 
     // Make sure the result is in the range [1, n-1].
-    if (uECC_vli_isZero(_result, num_words)) {
+    if (uECC_vli_isZero(result, num_words)) {
         return 0;
     }
 
     // Convert result from native format to uint8_t format
-    uECC_vli_nativeToBytes(result, curve->num_bytes, _result);
+    uECC_vli_nativeToBytes(result, curve->num_bytes, result);
     return 1;
+}
+
+int uECC_scalar_multiplication(uint8_t * result,
+                               uint8_t * point,
+                               uint8_t * scalar,
+                               uECC_Curve curve) {
+    uECC_word_t _point[uECC_MAX_WORDS * 2];
+    uECC_word_t _scalar[uECC_MAX_WORDS];
+
+    uECC_word_t tmp[uECC_MAX_WORDS];
+    uECC_word_t *p2[2] = {_scalar, tmp};
+    uECC_word_t *initial_Z = 0;
+    uECC_word_t carry;
+    wordcount_t num_words = curve->num_words;
+    wordcount_t num_bytes = curve->num_bytes;
+    uECC_word_t _result[uECC_MAX_WORDS * 2];
+
+    // Allocate proper memory for the point and scalar in native type
+    // And allocate memory for the output result in native type
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    bcopy((uint8_t *) _scalar, scalar, num_bytes);
+    bcopy((uint8_t *) _point, point, num_bytes*2);
+#else
+    uECC_vli_bytesToNative(_scalar, scalar, BITS_TO_BYTES(curve->num_n_bits));
+    uECC_vli_bytesToNative(_point, point, num_bytes);
+    uECC_vli_bytesToNative(_point + num_words, point + num_bytes, num_bytes);
+#endif
+
+    // The following is same as in shared secret for security reasons
+    carry = regularize_k(_scalar, _scalar, tmp, curve);
+
+    if (g_rng_function) {
+        if (!uECC_generate_random_int(p2[carry], curve->p, num_words)) {
+            return 0;
+        }
+        initial_Z = p2[carry];
+    }
+
+    EccPoint_mult(_result, _point, p2[!carry], initial_Z, curve->num_n_bits + 1, curve);
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    bcopy((uint8_t *) result, (uint8_t *) _result, num_bytes);
+    bcopy((uint8_t *) result + num_bytes, (uint8_t *) _result + num_bytes, num_bytes);
+#else
+    uECC_vli_nativeToBytes(result, num_bytes, _result);
+    uECC_vli_nativeToBytes(result + num_bytes, num_bytes, _result + num_words);
+#endif
+    return !EccPoint_isZero(_result, curve);
 }
