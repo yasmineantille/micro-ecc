@@ -1670,34 +1670,40 @@ void uECC_point_mult(uECC_word_t *result,
 
 
 /* Additions by Yasmine Antille */
+
 int uECC_addition(uint8_t * result, uint8_t * P, uint8_t * Q, uECC_Curve curve)
 {
-    const wordcount_t num_bytes = curve->num_bytes;
-    const wordcount_t num_words = curve->num_words;
-
     // Allocate proper memory for the two points and output result in native type
-    uECC_word_t _p[uECC_MAX_WORDS * 2];
-    uECC_word_t _q[uECC_MAX_WORDS * 2];
+    uECC_word_t _P[uECC_MAX_WORDS * 2];
+    uECC_word_t _Q[uECC_MAX_WORDS * 2];
+
     uECC_word_t _result[uECC_MAX_WORDS * 2];
     uECC_word_t X1[uECC_MAX_WORDS], Y1[uECC_MAX_WORDS], X2[uECC_MAX_WORDS], Y2[uECC_MAX_WORDS];
     uECC_word_t z[uECC_MAX_WORDS];
 
+    const wordcount_t num_bytes = curve->num_bytes;
+    const wordcount_t num_words = curve->num_words;
+
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    bcopy((uint8_t *) _P, P, num_bytes*2);
+    bcopy((uint8_t *) _Q, Q, num_bytes*2);
+#else
     // Convert points from uint8_t format to native format to check if valid points
-    uECC_vli_bytesToNative(_p, P, num_bytes);
-    uECC_vli_bytesToNative(_p + num_words, P + num_bytes, num_bytes);
-    uECC_vli_bytesToNative(_q, Q, num_bytes);
-    uECC_vli_bytesToNative(_q + num_words, Q + num_bytes, num_bytes);
+    uECC_vli_bytesToNative(_P, P, num_bytes);
+    uECC_vli_bytesToNative(_P + num_words, P + num_bytes, num_bytes);
+    uECC_vli_bytesToNative(_Q, Q, num_bytes);
+    uECC_vli_bytesToNative(_Q + num_words, Q + num_bytes, num_bytes);
+#endif
 
     // Make sure receiving points are valid
-    if (!uECC_valid_point(_p, curve) || !uECC_valid_point(_q, curve)) {
+    if (!uECC_valid_point(_P, curve) || !uECC_valid_point(_Q, curve)) {
         return 5;
     }
 
-    // convert points to projective coordinates
-    uECC_vli_bytesToNative(X1, P, num_bytes);
-    uECC_vli_bytesToNative(Y1, P + num_bytes, num_bytes);
-    uECC_vli_bytesToNative(X2, Q, num_bytes);
-    uECC_vli_bytesToNative(Y2, Q + num_bytes, num_bytes);
+    uECC_vli_set(X1, _P, num_words);
+    uECC_vli_set(Y1, _P + num_words, num_words);
+    uECC_vli_set(X2, _Q, num_words);
+    uECC_vli_set(Y2, _Q + num_words, num_words);
 
     // uECC uses projective Jacobian coordinates internally for point representation,
     // but the Z coordinate is implicit during the Montgomery ladder since P and Q share same Z coordinate
@@ -1707,22 +1713,21 @@ int uECC_addition(uint8_t * result, uint8_t * P, uint8_t * Q, uECC_Curve curve)
     uECC_vli_modSub(z, X2, X1, curve->p, num_words);
     XYcZ_add(X1, Y1, X2, Y2, curve);
     uECC_vli_modInv(z, z, curve->p, num_words);
-    // Apply Z coordinate to the result
-    apply_z(X2, Y2, z, curve);
+    apply_z(X2, Y2, z, curve);  // Apply Z coordinate to the result
 
     uECC_vli_set(_result, X2, num_words);
     uECC_vli_set(_result + num_words, Y2, num_words);
 
-    // Check if the resulting point is on the curve
-    if (!uECC_valid_point(_result, curve)) {
-        return 0;
-    }
-
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    bcopy((uint8_t *) result, (uint8_t *) _result, num_bytes);
+    bcopy((uint8_t *) result + num_bytes, (uint8_t *) _result + num_bytes, num_bytes);
+#else
     // Convert resulting point to uint8_t format
-    uECC_vli_nativeToBytes(result, num_bytes, _q);
-    uECC_vli_nativeToBytes(result + num_bytes, num_bytes, _q + num_words);
+    uECC_vli_nativeToBytes(result, num_bytes, _result);
+    uECC_vli_nativeToBytes(result + num_bytes, num_bytes, _result + num_words);
+#endif
 
-    return 1;
+    return !EccPoint_isZero(_result, curve);
 }
 
 int uECC_calculate_mod_inv(uint8_t * result, uint8_t * r, uECC_Curve curve)
@@ -1874,3 +1879,4 @@ int uECC_scalar_multiplication(uint8_t * result,
 #endif
     return !EccPoint_isZero(_result, curve);
 }
+
