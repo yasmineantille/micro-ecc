@@ -440,19 +440,6 @@ Returns 1 if the result is valid, 0 if it is invalid.
  */
 int uECC_multiply_mod_p(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve curve);
 
-/* uECC_inner_product() function
-Calculate inner product of two arrays: a x b.
-
-Inputs:
-    result          - The address where result should be written to
-    a               - First array for inner product
-    b               - Second array for inner product
-    num_elements    - Number of elements in an array (must be equal for both arrays)
-
-Returns 1 if the result is valid, 0 if it is invalid.
- */
-int uECC_inner_product(uint8_t * result, uint8_t * a, uint8_t * b, uint8_t num_elements, uECC_Curve curve);
-
 /* uECC_point_doubling() function
 Calculate point doubling for p. Essentially: P*2
 
