@@ -463,3 +463,16 @@ Inputs:
 Returns 1 if the result is valid, 0 if it is invalid.
  */
 int uECC_point_doubling(uint8_t *result, uint8_t *P, uECC_Curve curve);
+
+/* uECC_add_mod_p() function
+Calculate addition of two scalars mod p
+R = a + b % p
+
+Inputs:
+    result          - The address where result should be written to
+    a               - First scalar
+    b               - Second scalar
+
+Returns 1 if the result is valid, 0 if it is invalid.
+ */
+int uECC_add_mod_p(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve curve);

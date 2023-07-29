@@ -1803,26 +1803,28 @@ int uECC_multiply_mod_p(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve c
     return 1;
 }
 
-int uECC_inner_product(uint8_t * result, uint8_t * a, uint8_t * b, uint8_t num_elements, uECC_Curve curve)
+int uECC_add_mod_p(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve curve)
 {
     const wordcount_t num_words = curve->num_words;
-    const wordcount_t num_bytes = curve->num_bytes;
     const wordcount_t num_n_bits = curve->num_n_bits;
+    const wordcount_t num_bytes = curve->num_bytes;
+    wordcount_t num_n_words = BITS_TO_WORDS(num_n_bits);
 
+    // Allocate memory for the random number and inverse in native type
     uECC_word_t _result[uECC_MAX_WORDS];
-    uECC_word_t _temp_result[uECC_MAX_WORDS];
+    uECC_word_t _a[uECC_MAX_WORDS];
+    uECC_word_t _b[uECC_MAX_WORDS];
 
-    // Initialize the result to zero
-    uECC_vli_clear(_result, num_words);
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    bcopy((uint8_t *) _a, a, num_bytes);
+    bcopy((uint8_t *) _b, b, num_bytes);
+#else
+    // Convert input from uint8_t format to native format
+    uECC_vli_bytesToNative(_a, a, BITS_TO_BYTES(curve->num_n_bits));
+    uECC_vli_bytesToNative(_b, b, BITS_TO_BYTES(curve->num_n_bits));
+#endif
 
-    wordcount_t i;
-    for (i = 0; i < num_elements; i++) {
-        // call multiply mod p method
-        uECC_multiply_mod_p(_temp_result, &a[i*num_bytes], &b[i*num_bytes], curve);
-
-        // Accumulate the result
-        uECC_vli_modAdd(_result, _result, _temp_result, curve->p, num_words);
-    }
+    uECC_vli_modAdd(_result, _a, _b, curve->p, num_words);
 
     // Make sure the result is in the range [1, n-1].
     if (uECC_vli_isZero(_result, num_words)) {
@@ -1834,7 +1836,6 @@ int uECC_inner_product(uint8_t * result, uint8_t * a, uint8_t * b, uint8_t num_e
 #else
     uECC_vli_nativeToBytes(result, num_bytes, _result);
 #endif
-
     return 1;
 }
 
