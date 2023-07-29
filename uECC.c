@@ -1880,3 +1880,14 @@ int uECC_scalar_multiplication(uint8_t * result,
     return !EccPoint_isZero(_result, curve);
 }
 
+int uECC_point_doubling(uint8_t *result, uint8_t *P, uECC_Curve curve)
+{
+    // Set scalar for multiplication to 2
+    uint8_t scalar[32];
+    scalar[31] = 2;
+    for (int i = 0; i<31; i++) {
+        scalar[i] = 0;
+    }
+
+    return uECC_scalar_multiplication(result, P, scalar, curve);
+}

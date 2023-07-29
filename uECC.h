@@ -452,3 +452,14 @@ Inputs:
 Returns 1 if the result is valid, 0 if it is invalid.
  */
 int uECC_inner_product(uint8_t * result, uint8_t * a, uint8_t * b, const uint8_t num_elements, uECC_Curve curve);
+
+/* uECC_point_doubling() function
+Calculate point doubling for p. Essentially: P*2
+
+Inputs:
+    result          - The address where result should be written to
+    P               - Point to be doubled
+
+Returns 1 if the result is valid, 0 if it is invalid.
+ */
+int uECC_point_doubling(uint8_t *result, uint8_t *P, uECC_Curve curve);
