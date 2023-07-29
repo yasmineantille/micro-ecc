@@ -1734,25 +1734,31 @@ int uECC_calculate_mod_inv(uint8_t * result, uint8_t * r, uECC_Curve curve)
 {
     const wordcount_t num_words = curve->num_words;
     const wordcount_t num_n_bits = curve->num_n_bits;
+    const wordcount_t num_bytes = curve->num_bytes;
+    wordcount_t num_n_words = BITS_TO_WORDS(curve->num_n_bits);
 
     // Allocate memory for the random number and inverse in native type
-    uECC_word_t _result[uECC_MAX_WORDS];
     uECC_word_t _r[uECC_MAX_WORDS];
 
-    // Convert random number from uint8_t format to native format
-    uECC_vli_bytesToNative(_r, r, BITS_TO_BYTES(num_n_bits));
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    bcopy((uint8_t *) _r, r, num_bytes);
+#else
+    uECC_vli_bytesToNative(_r, r, num_bytes);
+#endif
 
     // Calculate the modular inverse using uECC_vli_modInv function
-    uECC_vli_modInv(_result, _r, curve->p, num_words);
+    uECC_vli_modInv(_r, _r, curve->p, num_n_words);
 
     // Make sure the result is in the range [1, n-1].
-    if (uECC_vli_isZero(_result, num_words)) {
+    if (uECC_vli_isZero(_r, num_words)) {
         return 0;
     }
 
-    // Convert inverse from native format to uint8_t format
-    uECC_vli_nativeToBytes(result, curve->num_bytes, _result);
-
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    bcopy((uint8_t *) result, (uint8_t *) _r, num_bytes);
+#else
+    uECC_vli_nativeToBytes(result, num_bytes, _r);
+#endif
     return 1;
 }
 
