@@ -438,7 +438,7 @@ Inputs:
 
 Returns 1 if the result is valid, 0 if it is invalid.
  */
-int uECC_multiply_mod_p(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve curve);
+int uECC_multiply_mod_mult(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve curve);
 
 /* uECC_point_doubling() function
 Calculate point doubling for p. Essentially: P*2

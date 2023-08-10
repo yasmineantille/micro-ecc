@@ -1747,7 +1747,7 @@ int uECC_calculate_mod_inv(uint8_t * result, uint8_t * r, uECC_Curve curve)
 #endif
 
     // Calculate the modular inverse using uECC_vli_modInv function
-    uECC_vli_modInv(_r, _r, curve->p, num_n_words);
+    uECC_vli_modInv(_r, _r, curve->n, num_n_words);
 
     // Make sure the result is in the range [1, n-1].
     if (uECC_vli_isZero(_r, num_words)) {
@@ -1772,7 +1772,7 @@ int uECC_scalar_mult_with_base_point(uint8_t * result, uint8_t * scalar, uECC_Cu
 }
 
 
-int uECC_multiply_mod_p(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve curve)
+int uECC_multiply_mod_mult(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve curve)
 {
     const wordcount_t num_words = curve->num_words;
     const wordcount_t num_n_bits = curve->num_n_bits;
@@ -1793,7 +1793,17 @@ int uECC_multiply_mod_p(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve c
     uECC_vli_bytesToNative(_b, b, BITS_TO_BYTES(curve->num_n_bits));
 #endif
 
-    uECC_vli_modMult_fast(_result, _a, _b, curve);
+// uECC_vli_modMult_fast(_result, _a, _b, curve);
+// changed for mod n
+//    uECC_word_t product[2 * uECC_MAX_WORDS];
+//    uECC_vli_mult(product, _a, _b, curve->num_words);
+////#if (uECC_OPTIMIZATION_LEVEL > 0)
+////    curve->mmod_fast(result, product);
+////#else
+//    uECC_vli_mmod(result, product, curve->n, curve->num_words);
+////#endif
+
+    uECC_vli_modMult(_result, _a, _b, curve->n, num_words);
 
     // Make sure the result is in the range [1, n-1].
     if (uECC_vli_isZero(_result, num_words)) {
@@ -1830,7 +1840,7 @@ int uECC_add_mod_p(uint8_t * result, uint8_t * a, uint8_t * b, uECC_Curve curve)
     uECC_vli_bytesToNative(_b, b, BITS_TO_BYTES(curve->num_n_bits));
 #endif
 
-    uECC_vli_modAdd(_result, _a, _b, curve->p, num_words);
+    uECC_vli_modAdd(_result, _a, _b, curve->n, num_words);
 
     // Make sure the result is in the range [1, n-1].
     if (uECC_vli_isZero(_result, num_words)) {
@@ -1875,7 +1885,7 @@ int uECC_scalar_multiplication(uint8_t * result,
     carry = regularize_k(_scalar, _scalar, tmp, curve);
 
     if (g_rng_function) {
-        if (!uECC_generate_random_int(p2[carry], curve->p, num_words)) {
+        if (!uECC_generate_random_int(p2[carry], curve->n, num_words)) {
             return 0;
         }
         initial_Z = p2[carry];
